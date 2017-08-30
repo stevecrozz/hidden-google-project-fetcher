@@ -51,70 +51,75 @@ let clickWhenPossible = (async(page, selector) => {
   await el.click();
 });
 
+let die = () => {
+  console.log('Promise was rejected. Unable to continue');
+  process.exit(1);
+}
+
 (async() => {
   const browser = await puppeteer.launch({
     // headless: false
   });
-  const page = await browser.newPage();
-  await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' });
+  const page = await browser.newPage().catch(die);
+  await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die);
   console.log('loaded sign in page');
 
-  await type(page, credentials.username);
-  await page.press('Enter');
+  await type(page, credentials.username).catch(die);
+  await page.press('Enter').catch(die);
   console.log('entered username');
 
-  await page.waitForNavigation({ waitUntil: 'networkidle' })
-  await page.waitFor('#passwordNext');
-  await type(page, credentials.password);
-  await page.press('Enter');
+  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die);
+  await page.waitFor('#passwordNext').catch(die);
+  await type(page, credentials.password).catch(die);
+  await page.press('Enter').catch(die);
   console.log('entered password');
 
-  await page.waitForNavigation({ waitUntil: 'networkidle' })
-  await page.waitFor('link[rel=canonical][href="https://apps.google.com/user/hub"]');
+  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die);
+  await page.waitFor('link[rel=canonical][href="https://apps.google.com/user/hub"]').catch(die);
   console.log('signed in');
 
   await page.goto(`https://docs.google.com/spreadsheets/d/${sheetId}`, {
     waitUntil: 'networkidle',
     networkIdleTimeout: fudgeFactor.medium
-  });
+  }).catch(die);
   console.log('arrived at drive.google.com spreadsheet');
 
-  await dismissButterBar(page);
+  await dismissButterBar(page).catch(die);
 
   // use the menu to navigate to the script editor
-  await clickWhenPossible(page, '#docs-tools-menu');
+  await clickWhenPossible(page, '#docs-tools-menu').catch(die);
   console.log('clicked on the tools menu');
-  await clickWhenPossible(page, '#\\:hc');
-  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium })
+  await clickWhenPossible(page, '#\\:hc').catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
   console.log('clicked the script editor link');
 
   // clicking the script editor link opens a new tab, this code gets the URL of
   // the new tab so we can use it
-  let targets = await browser._connection.send('Target.getTargets');
+  let targets = await browser._connection.send('Target.getTargets').catch(die);
   let googleAppsScriptTargets = targets.targetInfos.filter(i => i.type === 'page' && i.url.match(/^https:\/\/script.google.com/));
   if (googleAppsScriptTargets.length === 0) {
     console.log('No google apps script targets found');
     browser.close();
   }
 
-  await page.goto(googleAppsScriptTargets[0].url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium });
-  await dismissButterBar(page);
+  await page.goto(googleAppsScriptTargets[0].url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
+  await dismissButterBar(page).catch(die);
 
   // use the menu to navigate to the cloud platform project menu
-  await clickWhenPossible(page, '#macros-resources-menu');
+  await clickWhenPossible(page, '#macros-resources-menu').catch(die);
   console.log('clicked on the resources menu');
-  await clickWhenPossible(page, '#\\:1t');
-  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small })
+  await clickWhenPossible(page, '#\\:1t').catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small }).catch(die);
   console.log('clicked on the cloud platform project menu');
 
-  await page.waitFor('.script-devconsoleproject-dialog-projectlink');
+  await page.waitFor('.script-devconsoleproject-dialog-projectlink').catch(die);
   console.log('Found project link');
 
   let projectHref = await page.evaluate(() => {
     let container = window.document.getElementsByClassName('script-devconsoleproject-dialog-projectlink')[0];
     let link = container.getElementsByTagName('a')[0];
     return link.getAttribute('href');
-  });
+  }).catch(die);
   console.log("Found project href: " + projectHref);
 
   browser.close();
