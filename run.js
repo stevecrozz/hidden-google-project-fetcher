@@ -44,11 +44,35 @@ let dismissButterBar = (async(page) => {
   }
 });
 
+let printButterBarMessage = (async(page) => {
+  let el = await page.$('#docs-butterbar-container .docs-butterbar-message');
+  if (el) {
+    let text = await page.evaluate(el => el.innerText);
+    console.log(`Caught "butter bar" message: ${text}`);
+  }
+});
+
 // wiat for a selector and then click it
 let clickWhenPossible = (async(page, selector) => {
   await page.waitFor(selector);
   let el = await page.$(selector);
   await el.click();
+});
+
+// visits a script.google.com url and navigates to the cloud platform project
+// window where we can find the project id, retrying if there are any errors
+let navigateToCloudPlatformProjectWindow = (async(page, url) => {
+  await page.goto(url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
+  await dismissButterBar(page).catch(die);
+
+  // use the menu to navigate to the cloud platform project menu
+  await clickWhenPossible(page, '#macros-resources-menu').catch(die);
+  console.log('clicked on the resources menu');
+  await clickWhenPossible(page, '#\\:1t').catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small }).catch(die);
+  console.log('clicked on the cloud platform project menu');
+
+  return page.waitFor('.script-devconsoleproject-dialog-projectlink');
 });
 
 let die = () => {
@@ -102,17 +126,18 @@ let die = () => {
     browser.close();
   }
 
-  await page.goto(googleAppsScriptTargets[0].url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
-  await dismissButterBar(page).catch(die);
-
-  // use the menu to navigate to the cloud platform project menu
-  await clickWhenPossible(page, '#macros-resources-menu').catch(die);
-  console.log('clicked on the resources menu');
-  await clickWhenPossible(page, '#\\:1t').catch(die);
-  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small }).catch(die);
-  console.log('clicked on the cloud platform project menu');
-
-  await page.waitFor('.script-devconsoleproject-dialog-projectlink').catch(die);
+  // try this a couple times. sometimes google has an error here and the retry resolves it
+  await navigateToCloudPlatformProjectWindow(page, googleAppsScriptTargets[0].url).catch(() => {
+    return printButterBarMessage(page).then(() => {
+      console.log('Retrying');
+      return navigateToCloudPlatformProjectWindow(page, googleAppsScriptTargets[0].url);
+    });
+  }).catch(() => {
+    return printButterBarMessage(page).then(() => {
+      console.log('Retrying');
+      return navigateToCloudPlatformProjectWindow(page, googleAppsScriptTargets[0].url);
+    });
+  }).catch(die);
   console.log('Found project link');
 
   let projectHref = await page.evaluate(() => {
