@@ -75,6 +75,17 @@ let navigateToCloudPlatformProjectWindow = (async(page, url) => {
   return page.waitFor('.script-devconsoleproject-dialog-projectlink');
 });
 
+// visits a script.google.com url and navigates to the cloud platform project
+// window where we can find the project id, retrying if there are any errors
+let keyboardNav = (async(page, keys) => {
+  await page.keyboard.down('Alt');
+  for (var key of keys) {
+    await page.keyboard.down(key);
+    await page.keyboard.up(key);
+  }
+  return page.keyboard.up('Alt');
+});
+
 let die = () => {
   console.log('Promise was rejected. Unable to continue');
   process.exit(1);
@@ -110,12 +121,9 @@ let die = () => {
 
   await dismissButterBar(page).catch(die);
 
-  // use the menu to navigate to the script editor
-  await clickWhenPossible(page, '#docs-tools-menu').catch(die);
-  console.log('clicked on the tools menu');
-  await clickWhenPossible(page, '#\\:hc').catch(die);
+  await keyboardNav(page, 'te');
+  console.log('navigated to the script editor');
   await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
-  console.log('clicked the script editor link');
 
   // clicking the script editor link opens a new tab, this code gets the URL of
   // the new tab so we can use it
