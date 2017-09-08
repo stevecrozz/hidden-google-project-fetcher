@@ -7,7 +7,7 @@ const process = require('process');
 const fudgeFactor = {
   small: 100,
   medium: 2000,
-  large: 10000
+  large: 30000
 };
 
 const credentials = {
@@ -142,45 +142,49 @@ let clickSelector = (async(page, selector) => {
 
   await dismissButterBar(page).catch(die(page));
   await clickSelector(page, clickOnSelector).catch(die(page));
-  console.log('clickd the selector');
+  console.log('clicked the selector');
+
+  await page
+    .waitFor('.modal-dialog button[name=continue]', { timeout: fudgeFactor.medium })
+    .then(async() => {
+      await page.click('.modal-dialog button[name=continue]');
+      await page.waitForNavigation({ waitUntil: 'networkidle' })
+
+      // If we haven't done this before, we need to authorize first
+      let targets = await browser._connection.send('Target.getTargets').catch(die(page));
+      let signInTargets = targets.targetInfos.filter(i => i.type === 'page' && i.url.match(/^https:\/\/accounts.google.com/));
+      if (signInTargets.length === 0) {
+        console.log('Error: No sign in targets found.');
+        browser.close();
+      }
+
+      console.log('Prompted to sign in and approve access');
+      await page.goto(signInTargets[0].url);
+      await page.waitForNavigation({ waitUntil: 'networkidle' })
+      console.log('Ready to sign in');
+      await page.waitFor('[data-email]');
+      await page.click('[data-email]');
+      console.log('Signing in');
+      await page.waitForNavigation({ waitUntil: 'networkidle' })
+      await page.waitFor('#submit_approve_access');
+      await page.click('#submit_approve_access');
+      console.log('Approving access');
+      await page.waitForNavigation({ waitUntil: 'networkidle' })
+      await browser._connection.send('Target.closeTarget', { targetId: signInTargets[0].targetId });
+
+      console.log('Going back to the spreadsheet');
+      await page.goto(`https://docs.google.com/spreadsheets/d/${sheetId}`, {
+        waitUntil: 'networkidle',
+        networkIdleTimeout: fudgeFactor.medium
+      }).catch(die(page));
+      console.log('arrived back at drive.google.com spreadsheet');
+
+      await clickSelector(page, clickOnSelector).catch(die(page));
+    })
+    .catch(() => {});
+
+  console.log('waiting for network with a large fudge factor so that hopefully all the scripts will run');
   await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.large }).catch(die(page));
-
-  if (await page.$('.modal-dialog button[name=continue]')) {
-    await page.click('.modal-dialog button[name=continue]');
-    await page.waitForNavigation({ waitUntil: 'networkidle' })
-
-    // If we haven't done this before, we need to authorize first
-    let targets = await browser._connection.send('Target.getTargets').catch(die(page));
-    let signInTargets = targets.targetInfos.filter(i => i.type === 'page' && i.url.match(/^https:\/\/accounts.google.com/));
-    if (signInTargets.length === 0) {
-      console.log('Error: No sign in targets found.');
-      browser.close();
-    }
-
-    console.log('Prompted to sign in and approve access');
-    await page.goto(signInTargets[0].url);
-    await browser._connection.send('Target.closeTarget', { targetId: signInTargets[0].id });
-    await page.waitForNavigation({ waitUntil: 'networkidle' })
-    console.log('Ready to sign in');
-    await page.waitFor('[data-email]');
-    await page.click('[data-email]');
-    console.log('Signing in');
-    await page.waitForNavigation({ waitUntil: 'networkidle' })
-    await page.waitFor('#submit_approve_access');
-    await page.click('#submit_approve_access');
-    console.log('Approving access');
-    await page.waitForNavigation({ waitUntil: 'networkidle' })
-
-    console.log('Going back to the spreadsheet');
-    await page.goto(`https://docs.google.com/spreadsheets/d/${sheetId}`, {
-      waitUntil: 'networkidle',
-      networkIdleTimeout: fudgeFactor.medium
-    }).catch(die(page));
-    console.log('arrived back at drive.google.com spreadsheet');
-
-    await clickSelector(page, clickOnSelector).catch(die(page));
-    await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.large }).catch(die(page));
-  }
 
   browser.close();
 })();
