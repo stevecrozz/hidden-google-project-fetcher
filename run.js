@@ -62,14 +62,14 @@ let clickWhenPossible = (async(page, selector) => {
 // visits a script.google.com url and navigates to the cloud platform project
 // window where we can find the project id, retrying if there are any errors
 let navigateToCloudPlatformProjectWindow = (async(page, url) => {
-  await page.goto(url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
-  await dismissButterBar(page).catch(die);
+  await page.goto(url, { waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die(page));
+  await dismissButterBar(page).catch(die(page));
 
   // use the menu to navigate to the cloud platform project menu
-  await clickWhenPossible(page, '#macros-resources-menu').catch(die);
+  await clickWhenPossible(page, '#macros-resources-menu').catch(die(page));
   console.log('clicked on the resources menu');
-  await clickWhenPossible(page, '#\\:1t').catch(die);
-  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small }).catch(die);
+  await clickWhenPossible(page, '#\\:1t').catch(die(page));
+  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.small }).catch(die(page));
   console.log('clicked on the cloud platform project menu');
 
   return page.waitFor('.script-devconsoleproject-dialog-projectlink');
@@ -86,48 +86,56 @@ let keyboardNav = (async(page, keys) => {
   return page.keyboard.up('Alt');
 });
 
-let die = () => {
-  console.log('Promise was rejected. Unable to continue');
-  process.exit(1);
+let die = (page) => {
+  return async() => {
+    console.log('Promise was rejected. Unable to continue');
+
+    if (page) {
+      await page.screenshot({path: 'screenshot.png'});
+      console.log('Took a screenshot and saved to ./screenshot.png');
+    }
+
+    process.exit(1);
+  }
 }
 
 (async() => {
   const browser = await puppeteer.launch({
-    // headless: false
+    headless: false
   });
-  const page = await browser.newPage().catch(die);
-  await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die);
+  const page = await browser.newPage().catch(die());
+  await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die(page));
   console.log('loaded sign in page');
 
-  await type(page, credentials.username).catch(die);
-  await page.press('Enter').catch(die);
+  await type(page, credentials.username).catch(die(page));
+  await page.press('Enter').catch(die(page));
   console.log('entered username');
 
-  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die);
-  await page.waitFor('#passwordNext').catch(die);
-  await type(page, credentials.password).catch(die);
-  await page.press('Enter').catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die(page));
+  await page.waitFor('#passwordNext').catch(die(page));
+  await type(page, credentials.password).catch(die(page));
+  await page.press('Enter').catch(die(page));
   console.log('entered password');
 
-  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die);
-  await page.waitFor('link[rel=canonical][href="https://apps.google.com/user/hub"]').catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle' }).catch(die(page));
+  await page.waitFor('link[rel=canonical][href="https://apps.google.com/user/hub"]').catch(die(page));
   console.log('signed in');
 
   await page.goto(`https://docs.google.com/spreadsheets/d/${sheetId}`, {
     waitUntil: 'networkidle',
     networkIdleTimeout: fudgeFactor.medium
-  }).catch(die);
+  }).catch(die(page));
   console.log('arrived at drive.google.com spreadsheet');
 
-  await dismissButterBar(page).catch(die);
+  await dismissButterBar(page).catch(die(page));
 
   await keyboardNav(page, 'te');
   console.log('navigated to the script editor');
-  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die);
+  await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium }).catch(die(page));
 
   // clicking the script editor link opens a new tab, this code gets the URL of
   // the new tab so we can use it
-  let targets = await browser._connection.send('Target.getTargets').catch(die);
+  let targets = await browser._connection.send('Target.getTargets').catch(die(page));
   let googleAppsScriptTargets = targets.targetInfos.filter(i => i.type === 'page' && i.url.match(/^https:\/\/script.google.com/));
   if (googleAppsScriptTargets.length === 0) {
     console.log('No google apps script targets found');
@@ -145,14 +153,14 @@ let die = () => {
       console.log('Retrying');
       return navigateToCloudPlatformProjectWindow(page, googleAppsScriptTargets[0].url);
     });
-  }).catch(die);
+  }).catch(die(page));
   console.log('Found project link');
 
   let projectHref = await page.evaluate(() => {
     let container = window.document.getElementsByClassName('script-devconsoleproject-dialog-projectlink')[0];
     let link = container.getElementsByTagName('a')[0];
     return link.getAttribute('href');
-  }).catch(die);
+  }).catch(die(page));
   console.log("Found project href: " + projectHref);
 
   browser.close();
