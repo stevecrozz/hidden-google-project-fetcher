@@ -120,6 +120,8 @@ let clickSelector = (async(page, selector) => {
 (async() => {
   const browser = await puppeteer.launch({ headless: headless });
   const page = await browser.newPage().catch(die());
+  page.on('console', (...args) => console.log('PAGE LOG:', ...args));
+  await page.setViewport({ width: 1600, height: 1200 });
   await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die(page));
   console.log('loaded sign in page');
 
@@ -168,13 +170,13 @@ let clickSelector = (async(page, selector) => {
       console.log('Ready to sign in');
       await page.waitFor('[data-email]', { timeout: fudgeFactor.medium })
         .then(async() => {
-          await page.click('[data-email]').catch(die(page));
           console.log('Signing in');
-        }).catch(() => {
+          await page.click('[data-email]').catch(die(page));
+        }).catch(async () => {
           console.log('Sign-in page was not found, attempting to continue without signing in.');
+          return Promise.resolve();
         });
 
-      await page.waitForNavigation({ waitUntil: 'networkidle' })
       await page.waitFor('#submit_approve_access');
       await page.click('#submit_approve_access');
       console.log('Approving access');
@@ -188,8 +190,10 @@ let clickSelector = (async(page, selector) => {
       }).catch(die(page));
       console.log('arrived back at drive.google.com spreadsheet');
 
+      await dismissButterBar(page).catch(() => {});
       console.log('clicking the the specified selector again');
       await clickSelector(page, clickOnSelector).catch(die(page));
+      await page.waitForNavigation({ waitUntil: 'networkidle' })
     })
     .catch(() => {});
 
@@ -215,6 +219,7 @@ let clickSelector = (async(page, selector) => {
           if (!node || node.children.length < 2) { return; }
           let message = Array.prototype.map.call(node.children, n => n.innerText).join(': ');
           toastMessages.push(message);
+          console.log(message);
           clearTimeout(timeout);
 
           if (message === 'Update all: Done!') {
