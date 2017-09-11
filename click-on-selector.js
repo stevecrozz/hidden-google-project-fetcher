@@ -17,12 +17,14 @@ const credentials = {
 
 const sheetId = process.env['SHEET_ID'];
 const clickOnSelector = process.env['CLICK_ON_SELECTOR']; // eg '[aria-label^="UPDATE-ALL"]'
+const headless = process.env['HEADLESS'] === 'false' ? false : true;
 
 console.log('Inputs provided: ');
-console.log(`  username: ${credentials.username}`);
-console.log(`  password: ${credentials.password ? '********' : credentials.password}`);
-console.log(`  sheet_id: ${sheetId}`);
-console.log(`  click_on_selector: ${clickOnSelector}`);
+console.log(`  GOOGLE_USERNAME: ${credentials.username}`);
+console.log(`  GOOGLE_PASSWORD: ${credentials.password ? '********' : credentials.password}`);
+console.log(`  SHEET_ID: ${sheetId}`);
+console.log(`  CLICK_ON_SELECTOR: ${clickOnSelector}`);
+console.log(`  HEADLESS: ${headless}`);
 console.log('');
 
 // Uses the keyboard to type a string of text
@@ -113,9 +115,7 @@ let clickSelector = (async(page, selector) => {
 });
 
 (async() => {
-  const browser = await puppeteer.launch({
-    headless: false
-  });
+  const browser = await puppeteer.launch({ headless: headless });
   const page = await browser.newPage().catch(die());
   await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die(page));
   console.log('loaded sign in page');
@@ -161,10 +161,16 @@ let clickSelector = (async(page, selector) => {
       console.log('Prompted to sign in and approve access');
       await page.goto(signInTargets[0].url);
       await page.waitForNavigation({ waitUntil: 'networkidle' })
+
       console.log('Ready to sign in');
-      await page.waitFor('[data-email]');
-      await page.click('[data-email]');
-      console.log('Signing in');
+      await page.waitFor('[data-email]', { timeout: fudgeFactor.medium })
+        .then(async() => {
+          await page.click('[data-email]').catch(die(page));
+          console.log('Signing in');
+        }).catch(() => {
+          console.log('Sign-in page was not found, attempting to continue without signing in.');
+        });
+
       await page.waitForNavigation({ waitUntil: 'networkidle' })
       await page.waitFor('#submit_approve_access');
       await page.click('#submit_approve_access');

@@ -15,11 +15,13 @@ const credentials = {
 };
 
 const sheetId = process.env['SHEET_ID'];
+const headless = process.env['HEADLESS'] === 'false' ? false : true;
 
 console.log('Inputs provided: ');
 console.log(`  username: ${credentials.username}`);
 console.log(`  password: ${credentials.password ? '********' : credentials.password}`);
 console.log(`  sheet_id: ${sheetId}`);
+console.log(`  headless: ${headless}`);
 console.log('');
 
 // Uses the keyboard to type a string of text
@@ -100,9 +102,7 @@ let die = (page) => {
 }
 
 (async() => {
-  const browser = await puppeteer.launch({
-    headless: false
-  });
+  const browser = await puppeteer.launch({ headless: headless });
   const page = await browser.newPage().catch(die());
   await page.goto('https://apps.google.com/user/hub', { waitUntil: 'networkidle' }).catch(die(page));
   console.log('loaded sign in page');
