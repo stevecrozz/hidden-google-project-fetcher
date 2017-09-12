@@ -180,7 +180,7 @@ let clickSelector = (async(page, selector) => {
       await page.waitFor('#submit_approve_access');
       await page.click('#submit_approve_access');
       console.log('Approving access');
-      await page.waitForNavigation({ waitUntil: 'networkidle' })
+      await page.waitForNavigation({ waitUntil: 'networkidle', networkIdleTimeout: fudgeFactor.medium })
       await browser._connection.send('Target.closeTarget', { targetId: signInTargets[0].targetId });
 
       console.log('Going back to the spreadsheet');
