@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const process = require('process');
+const fs = require('fs');
 
 /**
  * Time to wait after network becomes idle for the page to become 'ready'
@@ -98,7 +99,24 @@ let die = (page) => {
   return async() => {
     console.log('Promise was rejected. Unable to continue');
 
+    let modalMessage = await page.evaluate(() => {
+      let modal = document.querySelector('.modal-dialog-content');
+      if (modal) {
+        return modal.innerText;
+      } else {
+        return undefined;
+      }
+    });
+
+    if (modalMessage) {
+      console.log(`Modal dialog says: ${modalMessage}`);
+    }
+
     if (page) {
+      let dom = await page.evaluate(() => document.documentElement.outerHTML);
+      fs.writeFileSync('document.html', dom);
+      console.log('Took a snapshot of the DOM and saved to ./document.html');
+
       await page.screenshot({path: 'screenshot.png'});
       console.log('Took a screenshot and saved to ./screenshot.png');
     }
@@ -206,14 +224,17 @@ let clickSelector = (async(page, selector) => {
       rejectPromise = rejector;
     });
     let resolve = () => {
-      observer.disconnect();
+      toastObserver.disconnect();
       resolvePromise();
+    };
+    let reject = () => {
+      toastObserver.disconnect();
+      rejectPromise();
     };
     let toastMessages = [];
 
-    let timeout = setTimeout(rejectPromise, timeoutValue);
-    let toast = document.querySelector('.apps-toast');
-    let observer = new MutationObserver(function(mutations) {
+    let timeout = setTimeout(reject, timeoutValue);
+    let toastObserver = new MutationObserver(function(mutations) {
       mutations.forEach(mutation => {
         mutation.addedNodes.forEach(node => {
           if (!node || node.children.length < 2) { return; }
@@ -227,12 +248,12 @@ let clickSelector = (async(page, selector) => {
             resolve(toastMessages);
           } else {
             // not done, reset the toast timer
-            timeout = setTimeout(rejectPromise, timeoutValue);
+            timeout = setTimeout(reject, timeoutValue);
           }
         });
       });
     });
-    observer.observe(toast, { childList: true });
+    toastObserver.observe(document.querySelector('.apps-toast'), { childList: true });
 
     return promise;
   }, fudgeFactor.verylarge, toastMessage).catch(die(page));
