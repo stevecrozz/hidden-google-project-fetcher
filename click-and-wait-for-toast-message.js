@@ -6,10 +6,10 @@ const fs = require('fs');
  * Time to wait after network becomes idle for the page to become 'ready'
  */
 const fudgeFactor = {
-  small: 100,
-  medium: 2000,
-  large: 30000,
-  verylarge: 120000
+  small: process.env.FUDGE_FACTOR_SMALL || 100,
+  medium: process.env.FUDGE_FACTOR_MEDIUM || 2000,
+  large: process.env.FUDGE_FACTOR_LARGE || 30000,
+  verylarge: process.env.FUDGE_FACTOR_VERYLARGE || 120000
 };
 
 const credentials = {
@@ -29,6 +29,10 @@ console.log(`  SHEET_ID: ${sheetId}`);
 console.log(`  CLICK_ON_SELECTOR: ${clickOnSelector}`);
 console.log(`  WAIT_FOR_TOAST_MESSAGE: ${toastMessage}`);
 console.log(`  HEADLESS: ${headless}`);
+console.log(`  FUDGE_FACTOR_SMALL: ${fudgeFactor.small}`);
+console.log(`  FUDGE_FACTOR_MEDIUM: ${fudgeFactor.medium}`);
+console.log(`  FUDGE_FACTOR_LARGE: ${fudgeFactor.large}`);
+console.log(`  FUDGE_FACTOR_VERYLARGE: ${fudgeFactor.verylarge}`);
 console.log('');
 
 // Uses the keyboard to type a string of text
